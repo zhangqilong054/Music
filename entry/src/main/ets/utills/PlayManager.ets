@@ -1,0 +1,118 @@
+import { media } from '@kit.MediaKit'
+import { GlobalMusic } from '../model/GlobalMusic'
+import { SongItemType } from '../model/SongData'
+import { AppStorageV2 } from '@kit.ArkUI'
+
+class PlayManager {
+  avPlayer: media.AVPlayer | null = null;
+  currSong: GlobalMusic = AppStorageV2.connect(GlobalMusic, 'currSong', () => new GlobalMusic()) as GlobalMusic;
+
+  async init() {
+    try {
+      this.avPlayer = await media.createAVPlayer();
+      this.avPlayer.on('stateChange', async (state, reason) => {
+        switch (state) {
+          case 'initialized':
+            console.info('AVPlayerState initializes called.');
+            this.avPlayer?.prepare();
+            break;
+          case 'prepared':
+            console.info('AVPlayerState prepared called.');
+            this.avPlayer?.play();
+            this.currSong.isPlay = true;
+            break;
+        }
+      })
+      this.avPlayer.on('durationUpdate', (duration: number) => {
+        this.currSong.duration = duration;
+      })
+      this.avPlayer.on('timeUpdate', (time: number) => {
+        this.currSong.time = time;
+      })
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  async changePlay(item: SongItemType) {
+    await this.avPlayer?.reset()
+    this.currSong.duration = 0
+    this.currSong.time = 0
+    this.currSong.img = item.img
+    this.currSong.name = item.name
+    this.currSong.author = item.author
+    this.currSong.url = item.url
+    this.avPlayer!.url = item.url // 设置属性url，AVPlayer进入initialized状态
+  }
+
+  singPlay(song: SongItemType) {
+    let isArr = this.currSong.playList.some(item => item.id == song.id)
+    if (isArr) {
+      if (this.currSong.url == song.url) {
+        this.avPlayer?.play()
+        this.currSong.isPlay = true
+      } else {
+        this.currSong.playIndex = this.currSong.playList.findIndex(item => item.id == song.id)
+        // 切歌
+        this.changePlay(song)
+      }
+    } else {
+      this.currSong.playList.unshift(song)
+      this.currSong.playIndex = 0
+      // 切歌
+      this.changePlay(song)
+    }
+  }
+
+  //暂停播放
+  pause() {
+    this.avPlayer?.pause();
+    this.currSong.isPlay = false;
+  }
+
+  //继续
+  resume() {
+    this.avPlayer?.play();
+    this.currSong.isPlay = true;
+  }
+
+  //上一首
+  prev() {
+    const lenth = this.currSong.playList.length;
+    let newIndex = this.currSong.playIndex;
+    if (this.currSong.playMode == 'auto') {
+      if (this.currSong.playIndex > 0) {
+        newIndex--;
+      } else {
+        newIndex = lenth - 1;
+      }
+    } else if (this.currSong.playMode == 'repeat') {
+
+    } else if (this.currSong.playMode == 'random') {
+      newIndex = Math.floor(Math.random() * lenth);
+    }
+    this.currSong.playIndex = newIndex;
+    this.changePlay(this.currSong.playList[newIndex]);
+  }
+
+  //下一首
+  next() {
+    const lenth = this.currSong.playList.length;
+    let newIndex = this.currSong.playIndex;
+    if (this.currSong.playMode == 'auto') {
+      if (this.currSong.playIndex < lenth - 1) {
+        newIndex++;
+      } else {
+        newIndex = 0;
+      }
+    } else if (this.currSong.playMode == 'repeat') {
+
+    } else if (this.currSong.playMode == 'random') {
+      newIndex = Math.floor(Math.random() * lenth);
+    }
+    this.currSong.playIndex = newIndex;
+    this.changePlay(this.currSong.playList[newIndex])
+  }
+}
+
+export const playManager = new PlayManager();
