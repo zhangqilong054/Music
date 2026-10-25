@@ -21,6 +21,11 @@ class PlayManager {
             this.avPlayer?.play();
             this.currSong.isPlay = true;
             break;
+          case 'completed':
+            // 播放结束：按当前模式切歌（repeat 模式保持索引，等价于单曲循环）
+            console.info('AVPlayerState completed called.');
+            this.next();
+            break;
         }
       })
       this.avPlayer.on('durationUpdate', (duration: number) => {
@@ -34,15 +39,35 @@ class PlayManager {
     }
   }
 
-  async changePlay(item: SongItemType) {
-    await this.avPlayer?.reset()
+  async changePlay(item?: SongItemType) {
+    const player = this.avPlayer
+    // 列表可能被删空，播放器也可能初始化失败
+    if (!item || !player) {
+      return
+    }
+    this.currSong.isPlay = false
+    await player.reset()
     this.currSong.duration = 0
     this.currSong.time = 0
     this.currSong.img = item.img
     this.currSong.name = item.name
     this.currSong.author = item.author
     this.currSong.url = item.url
-    this.avPlayer!.url = item.url // 设置属性url，AVPlayer进入initialized状态
+    player.url = item.url // 设置属性url，AVPlayer进入initialized状态
+  }
+
+  // 拖动进度条跳转
+  async seek(time: number) {
+    const player = this.avPlayer
+    if (!player) {
+      return
+    }
+    try {
+      await player.seek(time)
+      this.currSong.time = time
+    } catch (error) {
+      console.error(`seek failed: ${JSON.stringify(error)}`)
+    }
   }
 
   singPlay(song: SongItemType) {
@@ -79,17 +104,18 @@ class PlayManager {
   //上一首
   prev() {
     const lenth = this.currSong.playList.length;
+    if (lenth === 0) {
+      this.currSong.isPlay = false;
+      return;
+    }
     let newIndex = this.currSong.playIndex;
     if (this.currSong.playMode == 'auto') {
-      if (this.currSong.playIndex > 0) {
-        newIndex--;
-      } else {
-        newIndex = lenth - 1;
-      }
-    } else if (this.currSong.playMode == 'repeat') {
-
+      newIndex = (newIndex - 1 + lenth) % lenth;
     } else if (this.currSong.playMode == 'random') {
       newIndex = Math.floor(Math.random() * lenth);
+    }
+    if (newIndex < 0 || newIndex >= lenth) {
+      newIndex = 0;
     }
     this.currSong.playIndex = newIndex;
     this.changePlay(this.currSong.playList[newIndex]);
@@ -98,20 +124,21 @@ class PlayManager {
   //下一首
   next() {
     const lenth = this.currSong.playList.length;
+    if (lenth === 0) {
+      this.currSong.isPlay = false;
+      return;
+    }
     let newIndex = this.currSong.playIndex;
     if (this.currSong.playMode == 'auto') {
-      if (this.currSong.playIndex < lenth - 1) {
-        newIndex++;
-      } else {
-        newIndex = 0;
-      }
-    } else if (this.currSong.playMode == 'repeat') {
-
+      newIndex = (newIndex + 1) % lenth;
     } else if (this.currSong.playMode == 'random') {
       newIndex = Math.floor(Math.random() * lenth);
     }
+    if (newIndex < 0 || newIndex >= lenth) {
+      newIndex = 0;
+    }
     this.currSong.playIndex = newIndex;
-    this.changePlay(this.currSong.playList[newIndex])
+    this.changePlay(this.currSong.playList[newIndex]);
   }
 }
 

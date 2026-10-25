@@ -59,10 +59,16 @@ hvigorw --mode module -p product=default -p buildMode=debug assembleHap
 
 ## 已知问题
 
-- 播放列表清空后点击播放/上一首/下一首会因取到 `undefined` 歌曲而报错。
-- 歌曲播放结束后未自动切歌（未监听 `completed` 状态）。
-- 进度条 `Slider` 未绑定 `onChange`，暂不支持拖动定位。
-- 「我的」页面根容器高度为 `30%`，内容会溢出/被裁剪。
+- 媒体资源使用第三方示例 OSS 的 HTTP 地址，若目标 SDK 默认禁止明文传输，需自行配置 `network_config`。
+- 未处理 `AVPlayer` 的 `error` 回调，网络异常时界面没有提示；退出播放页也未 `release()` 播放器。
+- 示例资源（封面、音频）来自公开 OSS，可能随时失效。
+
+## 更新记录
+
+- 修复播放列表删空后点击播放/上一首/下一首导致的崩溃。
+- 歌曲播放结束自动切歌，`repeat` 模式等价单曲循环。
+- 进度条支持拖动定位（松手后 seek）。
+- 修正「我的」页面高度溢出与「发现」页面高度塌陷问题。
 
 欢迎提交 Issue 或 PR。
 

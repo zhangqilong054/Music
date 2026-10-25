@@ -7,6 +7,10 @@ import { playManager } from '../utills/PlayManager';
 @Component
 struct Play {
   @State panelY: string = '100%';
+  /** 是否正在拖动进度条 */
+  @State isDragging: boolean = false;
+  /** 拖动过程中的临时进度（毫秒） */
+  @State dragTime: number = 0;
   currSong: GlobalMusic = AppStorageV2.connect(GlobalMusic, 'currSong', () => new GlobalMusic()) as GlobalMusic
 
   /*
@@ -40,6 +44,11 @@ struct Play {
     return `${mm}:${s}`
   }
 
+  /** 拖动时显示拖动位置，否则跟随播放进度 */
+  currentTime(): number {
+    return this.isDragging ? this.dragTime : this.currSong.time
+  }
+
   @Builder
   deleteBtnBuilder(item: SongItemType) {
     Text(`删除`)
@@ -59,7 +68,11 @@ struct Play {
         const len = this.currSong.playList.length
         if (isCurrent) {
           if (len === 0) {
+            // 列表已删空：停止播放并复位进度，避免停留在“播放中”状态
             playManager.pause()
+            this.currSong.isPlay = false
+            this.currSong.time = 0
+            this.currSong.duration = 0
           } else {
             const newIndex = i % len
             this.currSong.playIndex = newIndex
@@ -162,11 +175,22 @@ struct Play {
 
         // 播放时间 滑动条
         Row() {
-          Text(this.numberToTime(this.currSong.time))
+          Text(this.numberToTime(this.currentTime()))
             .fontColor(Color.White)
-          Slider({ min: 0, max: this.currSong.duration, value: this.currSong.time })
+          Slider({ min: 0, max: this.currSong.duration > 0 ? this.currSong.duration : 1, value: this.currentTime() })
             .trackColor(Color.White)
             .layoutWeight(1)
+            .onChange((value: number, mode: SliderChangeMode) => {
+              if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
+                // 拖动中：只更新显示，等松手再真正跳转
+                this.isDragging = true
+                this.dragTime = value
+              } else {
+                this.isDragging = false
+                this.dragTime = value
+                playManager.seek(value)
+              }
+            })
           Text(this.numberToTime(this.currSong.duration))
             .fontColor(Color.White)
         }.width('100%')
@@ -209,6 +233,9 @@ struct Play {
             .width(45)
             .fillColor(Color.White)
             .onClick(() => {
+              if (this.currSong.playList.length === 0) {
+                return
+              }
               if (this.currSong.isPlay) {
                 playManager.pause();
               } else {

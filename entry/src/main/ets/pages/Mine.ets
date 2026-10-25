@@ -92,7 +92,7 @@ export struct Mine{
       }
     }
     .width('100%')
-    .height('30%')
+    .height('100%')
     .backgroundColor('#000000')
 
   }
